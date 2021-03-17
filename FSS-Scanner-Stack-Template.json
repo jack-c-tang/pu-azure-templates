@@ -1,0 +1,364 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "LAMBDA_ARN": {
+            "defaultValue": "",
+            "type": "String"
+        },
+        "LICENSE": {
+            "defaultValue": "",
+            "type": "String"
+        },
+        "ScannerPackage": {
+            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-scanner.zip",
+            "type": "String",
+            "metadata": {
+                "description": "Scanner package location."
+            }
+        }
+    },
+    "variables": {
+        "scannerStackUID": "[uniqueString(resourceGroup().id)]",
+        "scannerFunctionAppName": "[concat('tmsf0', variables('scannerStackUID'))]",
+        "scannerServerFarmName": "[concat('tmssf0', variables('scannerStackUID'))]",
+        "scannerStorageAccountName": "[concat('tmsa0', toLower(variables('scannerStackUID')))]",
+        "location": "[resourceGroup().location]",
+        "scannerApplicationInsightsName": "[concat('tmai0', toLower(variables('scannerStackUID')))]",
+        "scannerApplicationInsightsID": "[guid(concat('tmai0', toLower(variables('scannerStackUID'))))]",
+        "downloadPatternsRoleName": "[guid(resourceGroup().id, 'downloadPatternsRole')]",
+        "downloadPatternsRoleAssignmentName": "[guid(resourceGroup().id, 'downloadPatternsRoleAssignment')]",
+        "fssShareName": "fss",
+        "fssShareResourceName": "[concat(variables('scannerStorageAccountName'), '/default/', variables('fssShareName'))]",
+        "scannerIdentityName": "scannerIdentity",
+        "scannerQueueNamespaceName": "[concat('tmsbq0', toLower(variables('scannerStackUID')))]",
+        "scannerQueueName": "scanner_queue",
+        "scannerBusQueueName": "[concat(variables('scannerQueueNamespaceName'), '/', variables('scannerQueueName'))]",
+        "scannerQueueSASKeyName": "RootManageSharedAccessKey",
+        "scannerQueueAuthRuleResourceId": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', variables('scannerQueueNamespaceName'), variables('scannerQueueSASKeyName'))]",
+        "scannerQueueAPIVersion": "2017-04-01"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[variables('scannerIdentityName')]",
+            "location": "[variables('location')]"
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces",
+            "apiVersion": "2018-01-01-preview",
+            "name": "[variables('scannerQueueNamespaceName')]",
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+            },
+            "properties": {
+                "zoneRedundant": false
+            },
+            "resources": [
+                {
+                    "type": "Microsoft.ServiceBus/namespaces/queues",
+                    "apiVersion": "2018-01-01-preview",
+                    "name": "[variables('scannerBusQueueName')]",
+                    "location": "[variables('location')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.ServiceBus/namespaces', variables('scannerQueueNamespaceName'))]"
+                    ],
+                    "properties": {
+                        "lockDuration": "PT30S",
+                        "maxSizeInMegabytes": 1024,
+                        "requiresDuplicateDetection": false,
+                        "requiresSession": false,
+                        "defaultMessageTimeToLive": "P14D",
+                        "deadLetteringOnMessageExpiration": false,
+                        "enableBatchedOperations": true,
+                        "duplicateDetectionHistoryTimeWindow": "PT10M",
+                        "maxDeliveryCount": 2,
+                        "status": "Active",
+                        "enablePartitioning": false,
+                        "enableExpress": false
+                    }
+                }
+            ]
+        },
+        {
+            "name": "[variables('scannerApplicationInsightsName')]",
+            "type": "microsoft.insights/components",
+            "kind": "web",
+            "location": "[variables('location')]",
+            "apiVersion": "2015-05-01",
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[variables('scannerApplicationInsightsID')]"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "name": "[variables('scannerStorageAccountName')]",
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+            "apiVersion": "2019-06-01",
+            "name": "[variables('fssShareResourceName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Authorization/roleDefinitions",
+            "apiVersion": "2018-07-01",
+            "name": "[variables('downloadPatternsRoleName')]",
+            "properties": {
+                "roleName": "[variables('downloadPatternsRoleName')]",
+                "description": "role for downloadPatterns deployment script",
+                "type": "customRole",
+                "isCustom": true,
+                "permissions": [
+                    {
+                        "actions": [
+                            // least privilege for executing deployment scripts
+                            "Microsoft.Storage/storageAccounts/*",
+                            "Microsoft.ContainerInstance/containerGroups/*",
+                            "Microsoft.Resources/deployments/*",
+                            "Microsoft.Resources/deploymentScripts/*",
+                            // other required permissions for downloadPatterns
+                            "Microsoft.Web/sites/*"
+                        ],
+                        "dataActions": [
+                            "Microsoft.Storage/storageAccounts/fileServices/fileshares/files/*"
+                        ]
+                    }
+                ],
+                "assignableScopes": [
+                    "[resourceGroup().Id]"
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "downloadPatternsIdentity",
+            "location": "[variables('location')]"
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2018-09-01-preview",
+            "name": "[variables('downloadPatternsRoleAssignmentName')]",
+            "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('downloadPatternsRoleName'))]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'downloadPatternsIdentity')).principalId]",
+                "principalType": "ServicePrincipal"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Authorization/roleDefinitions', variables('downloadPatternsRoleName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "downloadPatterns",
+            "location": "[resourceGroup().location]",
+            "kind": "AzureCLI",
+            "identity": {
+                "type": "userAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', 'downloadPatternsIdentity')]": {}
+                }
+            },
+            "dependsOn": [
+                "[variables('downloadPatternsRoleAssignmentName')]",
+                "[variables('scannerFunctionAppName')]",
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('scannerStorageAccountName'), 'default', variables('fssShareName'))]"
+            ],
+            "properties": {
+                "forceUpdateTag": "20200129", // use a fixed value to execute only once
+                "azCliVersion": "2.3.1",
+                "environmentVariables": [
+                    {
+                        "name": "AZURE_STORAGE_ACCOUNT",
+                        "value": "[variables('scannerStorageAccountName')]"
+                    },
+                    {
+                        "name": "RESOURCE_GROUP_NAME",
+                        "value": "[resourceGroup().name]"
+                    },
+                    {
+                        "name": "FUNCTION_APP_NAME",
+                        "value": "[variables('scannerFunctionAppName')]"
+                    },
+                    {
+                        "name": "FSS_SHARE_NAME",
+                        "value": "[variables('fssShareName')]"
+                    }
+                ],
+                "scriptContent": "
+                    set -x
+                    export AZURE_STORAGE_KEY=$(az storage account keys list -g $RESOURCE_GROUP_NAME -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv)
+                    az storage directory create --share-name $FSS_SHARE_NAME --name patterns
+                    wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip
+                    unzip pattern.zip
+                    az storage file upload-batch --destination $FSS_SHARE_NAME/patterns --source ./patterns
+
+                    shareList=$(az webapp config storage-account list --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME)
+                    echo $shareList
+                    [[ $shareList == *\\\"fss-share-pattern\\\"* ]] || az webapp config storage-account add \\
+                        --resource-group $RESOURCE_GROUP_NAME \\
+                        --name $FUNCTION_APP_NAME \\
+                        --custom-id fss-share-pattern \\
+                        --storage-type AzureFiles \\
+                        --share-name $FSS_SHARE_NAME \\
+                        --mount-path /fss \\
+                        --account-name $AZURE_STORAGE_ACCOUNT \\
+                        --access-key $AZURE_STORAGE_KEY
+                ",
+                "arguments": "",
+                "timeout": "PT1H",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2020-06-01",
+            "name": "[variables('scannerServerFarmName')]",
+            "kind": "linux",
+            "properties": {
+                "reserved": true
+            },
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "EP1",
+                "tier": "ElasticPremium",
+                "size": "EP1",
+                "family": "EP",
+                "capacity": 1
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-11-01",
+            "name": "[variables('scannerFunctionAppName')]",
+            "location": "[variables('location')]",
+            "kind": "functionapp,linux",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities/', variables('scannerIdentityName'))]": {
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('scannerServerFarmName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName'))]",
+                "[resourceID('Microsoft.ServiceBus/namespaces/', variables('scannerQueueNamespaceName'))]"
+            ],
+            "properties": {
+                "enabled": true,
+                "hostNameSslStates": [
+                    {
+                        "name": "[concat(variables('scannerFunctionAppName'), '.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "hostType": "Standard"
+                    },
+                    {
+                        "name": "[concat(variables('scannerFunctionAppName'), '.scm.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "hostType": "Repository"
+                    }
+                ],
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('scannerServerFarmName'))]",
+                "reserved": true,
+                "isXenon": false,
+                "hyperV": false,
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~3"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "python"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('microsoft.insights/components', variables('scannerApplicationInsightsName')), '2020-02-02-preview').InstrumentationKey]"
+                        },
+                        {
+                            "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                            "value": "[reference(resourceId('microsoft.insights/components', variables('scannerApplicationInsightsName')), '2020-02-02-preview').ConnectionString]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',variables('scannerStorageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',variables('scannerStorageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "[toLower(variables('scannerFunctionAppName'))]"
+                        },
+                        {
+                            "name": "WEBSITE_RUN_FROM_PACKAGE",
+                            "value": "[parameters('ScannerPackage')]"
+                        },
+                        {
+                            "name": "LAMBDA_ARN",
+                            "value": "[parameters('LAMBDA_ARN')]"
+                        },
+                        {
+                            "name": "LD_LIBRARY_PATH",
+                            "value": "/home/site/wwwroot:/home/site/wwwroot/lib"
+                        },
+                        {
+                            "name": "FSS_SHARE_PATH",
+                            "value": "[concat('/', variables('fssShareName'))]"
+                        },
+                        {
+                            "name": "LICENSE",
+                            "value": "[parameters('LICENSE')]"
+                        },
+                        {
+                            "name": "BUS_QUEUE_CONNECTION_STR",
+                            "value": "[listkeys(variables('scannerQueueAuthRuleResourceId'), variables('scannerQueueAPIVersion')).primaryConnectionString]"
+                        },
+                        {
+                            "name": "SCANNER_QUEUE_NAME",
+                            "value": "[variables('scannerQueueName')]"
+                        }
+                    ],
+                    "use32BitWorkerProcess": false,
+                    "linuxFxVersion": "PYTHON|3.8"
+                },
+                "scmSiteAlsoStopped": false,
+                "clientAffinityEnabled": false,
+                "clientCertEnabled": false,
+                "hostNamesDisabled": false,
+                "containerSize": 1536,
+                "dailyMemoryTimeQuota": 0,
+                "httpsOnly": false,
+                "redundancyMode": "None"
+            }
+        }
+    ],
+    "outputs": {
+        "ScannerQueueNamespace": {
+            "type": "string",
+            "value": "[variables('scannerQueueNamespaceName')]"
+        },
+        "ScannerIdentityPrincipalID": {
+            "type": "string",
+            "value": "[reference(variables('scannerIdentityName')).principalId]"
+        }
+    }
+}

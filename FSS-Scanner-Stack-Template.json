@@ -199,26 +199,28 @@
                         "value": "[variables('fssShareName')]"
                     }
                 ],
-                "scriptContent": "
-                    set -x
-                    export AZURE_STORAGE_KEY=$(az storage account keys list -g $RESOURCE_GROUP_NAME -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv)
-                    az storage directory create --share-name $FSS_SHARE_NAME --name patterns
-                    wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip
-                    unzip pattern.zip
-                    az storage file upload-batch --destination $FSS_SHARE_NAME/patterns --source ./patterns
-
-                    shareList=$(az webapp config storage-account list --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME)
-                    echo $shareList
-                    [[ $shareList == *\\\"fss-share-pattern\\\"* ]] || az webapp config storage-account add \\
-                        --resource-group $RESOURCE_GROUP_NAME \\
-                        --name $FUNCTION_APP_NAME \\
-                        --custom-id fss-share-pattern \\
-                        --storage-type AzureFiles \\
-                        --share-name $FSS_SHARE_NAME \\
-                        --mount-path /fss \\
-                        --account-name $AZURE_STORAGE_ACCOUNT \\
-                        --access-key $AZURE_STORAGE_KEY
-                ",
+                // Azure portal deployment cannot parse json files contain multi-line string
+                // "scriptContent": "
+                //     set -x
+                //     export AZURE_STORAGE_KEY=$(az storage account keys list -g $RESOURCE_GROUP_NAME -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv)
+                //     az storage directory create --share-name $FSS_SHARE_NAME --name patterns
+                //     wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip
+                //     unzip pattern.zip
+                //     az storage file upload-batch --destination $FSS_SHARE_NAME/patterns --source ./patterns
+                //
+                //     shareList=$(az webapp config storage-account list --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME)
+                //     echo $shareList
+                //     [[ $shareList == *\\\"fss-share-pattern\\\"* ]] || az webapp config storage-account add \\
+                //         --resource-group $RESOURCE_GROUP_NAME \\
+                //         --name $FUNCTION_APP_NAME \\
+                //         --custom-id fss-share-pattern \\
+                //         --storage-type AzureFiles \\
+                //         --share-name $FSS_SHARE_NAME \\
+                //         --mount-path /fss \\
+                //         --account-name $AZURE_STORAGE_ACCOUNT \\
+                //         --access-key $AZURE_STORAGE_KEY
+                // ",
+                "scriptContent": "set -x \n export AZURE_STORAGE_KEY=$(az storage account keys list -g $RESOURCE_GROUP_NAME -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv) \n az storage directory create --share-name $FSS_SHARE_NAME --name patterns \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FSS_SHARE_NAME/patterns --source ./patterns \n shareList=$(az webapp config storage-account list --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME) \n echo $shareList \n [[ $shareList == *\\\"fss-share-pattern\\\"* ]] || az webapp config storage-account add --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME --custom-id fss-share-pattern --storage-type AzureFiles --share-name $FSS_SHARE_NAME --mount-path /fss --account-name $AZURE_STORAGE_ACCOUNT --access-key $AZURE_STORAGE_KEY",
                 "arguments": "",
                 "timeout": "PT1H",
                 "cleanupPreference": "OnSuccess",

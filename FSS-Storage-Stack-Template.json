@@ -338,6 +338,10 @@
                         {
                             "name": "SCAN_RESULT_TOPIC_NAMESPACE",
                             "value": "[variables('scanResultTopicNamespace')]"
+                        },
+                        {
+                            "name": "AZURE_CLIENT_ID",
+                            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', variables('blobListenerIdentityName'))).clientId]"
                         }
                     ],
                     "use32BitWorkerProcess": false,
@@ -474,6 +478,10 @@
                         {
                             "name": "SCAN_RESULT_SUBSCRIPTION_NAME",
                             "value": "[variables('scanResultTopicSubscriptionName')]"
+                        },
+                        {
+                            "name": "AZURE_CLIENT_ID",
+                            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', variables('actionTagIdentityName'))).clientId]"
                         }
                     ],
                     "use32BitWorkerProcess": false,

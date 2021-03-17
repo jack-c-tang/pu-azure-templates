@@ -337,6 +337,10 @@
                         {
                             "name": "SCANNER_QUEUE_NAME",
                             "value": "[variables('scannerQueueName')]"
+                        },
+                        {
+                            "name": "AZURE_CLIENT_ID",
+                            "value": "[reference(variables('scannerIdentityName')).clientId]"
                         }
                     ],
                     "use32BitWorkerProcess": false,

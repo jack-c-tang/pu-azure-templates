@@ -2,15 +2,19 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "ScannerPackage": {
-            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-scanner.zip",
-            "type": "String",
-            "metadata": {
-                "description": "Scanner package location."
-            }
+        "StackPackageLocation": {
+            "type": "string",
+            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com"
+        },
+        "Version": {
+            "type": "string",
+            "defaultValue": "latest"
         }
     },
     "variables": {
+        "functionPackageLinkPrefix": "[concat(parameters('Version'), '/functions')]",
+        "scannerFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-scanner.zip')]",
+
         "scannerStackUID": "[uniqueString(resourceGroup().id)]",
         "scannerFunctionAppName": "[concat('tmsf0', variables('scannerStackUID'))]",
         "scannerServerFarmName": "[concat('tmssf0', variables('scannerStackUID'))]",
@@ -29,7 +33,7 @@
         "scannerQueueSASKeyName": "RootManageSharedAccessKey",
         "scannerQueueAuthRuleResourceId": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', variables('scannerQueueNamespaceName'), variables('scannerQueueSASKeyName'))]",
         "scannerQueueAPIVersion": "2017-04-01",
-        "scannerLicense": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ3d3cudHJlbmRtaWNyby5jb20iLCJleHAiOjE2Mjc3NzYwMDAsIm5iZiI6MTYxNjQ5NTMzNywiaWF0IjoxNjE2NDk1MzM3LCJzdWIiOiJhenVyZS1zY2FubmVyLXBvYyIsImNsb3VkT25lIjp7ImFjY291bnQiOiIxMjM0NTY3ODkwMTIifX0.U3N6cGhk4KLqZEs_54xdc9usMATYy-NkSoM7QLcBNLHoDjKGONs5yTkV5kHxRB8P49YzICPLRCihNGqoluQOichNyHKlRcs-NKzd4DY5whdU-O3HNZuxpjJFOs7aSCkSD89mUXCJD1q5cpU7khNE_GGzNzs5e1sv1r42RPZm57R60uvpu0xUSt8pzAOCRTxp5F4jPlT8zAMdkc04_wqSo4UO80r9fYZBveKReFn-ZP9c0xqerE9aZ5Z37AMF1uEjAFrP7zm9pGjmhvi3c87Mp11gwLmvJWL_5taW8yEVd1B9M57dfciXmQRUNHL4oj9lp0ZMCBtQ4H5J2ofrD3rvGIFHU915YKCOM-PEd0z4S16dw32rqkFEfHQT76oNl7pzG3QseNsCCJlJkcxBcp44lGEUd5fLLOwthAzbMVdUKOPx9Hyft5vooG9QNsadgraMkrtsnIylkw_lIf9clXY5VdCH6e7F2vYWHwlGU9-zxSONEWzKUsMjTzPi5NPh-PANencynasBA6cr8hO6I6nO8jobSbua_th5By9P7iQP0dG8aJTdAq28qSu2El7yR8AIlBDmjMhMGsiAuJWGco5Ia_0LyBLMARhHbAGyU2Gfuwg9hL4GbqN5Mw6fnsV9i2FN1GlQyikVmqwcwmBjZXphgx8vwwMZDUlFjEu9wUhTzpA"
+        "scannerLicense": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ3d3cudHJlbmRtaWNyby5jb20iLCJleHAiOjE2Mjc3NzYwMDAsIm5iZiI6MTYxNjQ5NTMzNywiaWF0IjoxNjE2NDk1MzM3LCJzdWIiOiJhenVyZS1zY2FubmVyLXBvYyIsImNsb3VkT25lIjp7ImFjY291bnQiOiIxMjM0NTY3ODkwMTIifX0.U3N6cGhk4KLqZEs_54xdc9usMATYy-NkSoM7QLcBNLHoDjKGONs5yTkV5kHxRB8P49YzICPLRCihNGqoluQOichNyHKlRcs-NKzd4DY5whdU-O3HNZuxpjJFOs7aSCkSD89mUXCJD1q5cpU7khNE_GGzNzs5e1sv1r42RPZm57R60uvpu0xUSt8pzAOCRTxp5F4jPlT8zAMdkc04_wqSo4UO80r9fYZBveKReFn-ZP9c0xqerE9aZ5Z37AMF1uEjAFrP7zm9pGjmhvi3c87Mp11gwLmvJWL_5taW8yEVd1B9M57dfciXmQRUNHL4oj9lp0ZMCBtQ4H5J2ofrD3rvGIFHU915YKCOM-PEd0z4S16dw32rqkFEfHQT76oNl7pzG3QseNsCCJlJkcxBcp44lGEUd5fLLOwthAzbMVdUKOPx9Hyft5vooG9QNsadgraMkrtsnIylkw_lIf9clXY5VdCH6e7F2vYWHwlGU9-zxSONEWzKUsMjTzPi5NPh-PANencynasBA6cr8hO6I6nO8jobSbua_th5By9P7iQP0dG8aJTdAq28qSu2El7yR8AIlBDmjMhMGsiAuJWGco5Ia_0LyBLMARhHbAGyU2Gfuwg9hL4GbqN5Mw6fnsV9i2FN1GlQyikVmqwcwmBjZXphgx8vwwMZDUlFjEu9wUhTzpA",
     },
     "resources": [
         {
@@ -305,7 +309,7 @@
                         },
                         {
                             "name": "WEBSITE_RUN_FROM_PACKAGE",
-                            "value": "[parameters('ScannerPackage')]"
+                            "value": "[variables('scannerFunctionPackageLink')]"
                         },
                         {
                             "name": "LD_LIBRARY_PATH",

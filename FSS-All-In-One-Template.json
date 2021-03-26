@@ -35,34 +35,21 @@
                 "description": "The existing blob system topic name or the name of blob system topic to be created."
             }
         },
-        "ScannerTemplate": {
+        "StackPackageLocation": {
             "type": "string",
-            "defaultValue": "FSS-Scanner-Stack-Template.json"
+            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com"
         },
-        "StorageTemplate": {
+        "Version": {
             "type": "string",
-            "defaultValue": "FSS-Storage-Stack-Template.json"
-        },
-        "ScannerRoleAssignmentTemplate": {
-            "type": "string",
-            "defaultValue": "FSS-Scanner-Stack-Role-Assignment.json"
-        },
-        "ScannerPackage": {
-            "type": "String",
-            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-scanner.zip"
-        },
-        "BlobListenerPackage": {
-            "type": "String",
-            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-listener.zip"
-        },
-        "PostScanActionTagPackage": {
-            "type": "String",
-            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-action-tag.zip"
+            "defaultValue": "latest"
         }
     },
     "variables": {
-        "subscriptionID": "[subscription().subscriptionId]",
-        "location": "[deployment().location]"
+        "location": "[deployment().location]",
+        "templateLinkPrefix": "[concat(parameters('Version'), '/arm-templates')]",
+        "scannerStackTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Scanner-Stack-Template.json')]",
+        "storageStackTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Storage-Stack-Template.json')]",
+        "scannerRoleAssignmentTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Scanner-Stack-Role-Assignment.json')]"
     },
     "resources": [
         {
@@ -85,16 +72,18 @@
             ],
             "type": "Microsoft.Resources/deployments",
             "resourceGroup": "[parameters('ScannerStackResourceGroupName')]",
-            "subscriptionId": "[variables('subscriptionID')]",
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "relativePath": "[parameters('ScannerTemplate')]",
+                    "uri": "[variables('scannerStackTemplateLink')]",
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
-                    "ScannerPackage": {
-                        "value": "[parameters('ScannerPackage')]"
+                    "StackPackageLocation": {
+                        "value": "[parameters('StackPackageLocation')]"
+                    },
+                    "Version": {
+                        "value": "[parameters('Version')]"
                     }
                 }
             }
@@ -107,11 +96,10 @@
             ],
             "type": "Microsoft.Resources/deployments",
             "resourceGroup": "[parameters('StorageStackResourceGroupName')]",
-            "subscriptionId": "[variables('subscriptionID')]",
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "relativePath": "[parameters('StorageTemplate')]",
+                    "uri": "[variables('storageStackTemplateLink')]",
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
@@ -124,19 +112,18 @@
                     "ScannerQueueNamespace": {
                         "value": "[reference('scannerStack').outputs.ScannerQueueNamespace.value]"
                     },
-                    "BlobListenerPackage": {
-                        "value": "[parameters('BlobListenerPackage')]"
-                    },
-                    "PostScanActionTagPackage": {
-                        "value": "[parameters('PostScanActionTagPackage')]"
-                    },
                     "BlobSystemTopicExist": {
                         "value": "[parameters('BlobSystemTopicExist')]"
                     },
                     "BlobSystemTopicName": {
                         "value": "[parameters('BlobSystemTopicName')]"
+                    },
+                    "StackPackageLocation": {
+                        "value": "[parameters('StackPackageLocation')]"
+                    },
+                    "Version": {
+                        "value": "[parameters('Version')]"
                     }
-
                 }
             }
         },
@@ -145,11 +132,10 @@
             "name": "scannerStackRoleAssignment",
             "type": "Microsoft.Resources/deployments",
             "resourceGroup": "[parameters('ScannerStackResourceGroupName')]",
-            "subscriptionId": "[variables('subscriptionID')]",
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "relativePath": "[parameters('ScannerRoleAssignmentTemplate')]",
+                    "uri": "[variables('scannerRoleAssignmentTemplateLink')]",
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {

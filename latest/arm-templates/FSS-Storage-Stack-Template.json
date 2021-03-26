@@ -80,7 +80,7 @@
         "blobStorageAccountAPIVersion": "2019-06-01",
         "managedIdentityAPIVersion": "2018-11-30",
         "scanResultTopicAPIVersion": "2017-04-01",
-        "scanResultTopicNamespaceName": "[concat(variables('resourceGroupName'), '-scan-result')]",
+        "scanResultTopicNamespaceName": "[concat('tmsrt0', variables('storageStackUID'))]",
         "scanResultTopicNamespace": "[concat(variables('scanResultTopicNamespaceName'), '.servicebus.windows.net')]",
         "scanResultTopicName": "scan-result-topic",
         "scanResultTopicSubscriptionName": "scan-result",

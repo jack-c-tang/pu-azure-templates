@@ -4,11 +4,15 @@
     "parameters": {
         "ScannerStackResourceGroupName": {
             "type": "string",
-            "defaultValue": "Scanner-TM-FileStorageSecurity"
+            "defaultValue": "Scanner-TM-FileStorageSecurity",
+            "minLength": 1,
+            "maxLength": 90
         },
         "StorageStackResourceGroupName": {
             "type": "string",
-            "defaultValue": "Storage-TM-FileStorageSecurity"
+            "defaultValue": "Storage-TM-FileStorageSecurity",
+            "minLength": 1,
+            "maxLength": 90
         },
         "BlobStorageAccountResourceID": {
             "defaultValue": "/subscriptions/<subscriptionID>/resourceGroups/<resourceGroupName>/providers/Microsoft.Storage/storageAccounts/<storageAccountName>",

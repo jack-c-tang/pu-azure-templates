@@ -222,7 +222,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.ServiceBus/namespaces/Topics', variables('scanResultTopicNamespaceName'), variables('scanResultTopicName'))]"
             ],
-            "scope": "[concat('Microsoft.ServiceBus/namespaces/', variables('resourceGroupName'), '-scan-result/topics/scan-result-topic')]",
+            "scope": "[concat('Microsoft.ServiceBus/namespaces/', variables('scanResultTopicNamespaceName'), '/topics/', variables('scanResultTopicName'))]",
             "properties": {
                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('serviceBusDataSenderRoleID'))]",
                 "principalId": "[parameters('ScannerIdentityPrincipalID')]",

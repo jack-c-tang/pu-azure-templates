@@ -1,16 +1,166 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/subscriptionDeploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-
+        "ScannerStackResourceGroupName": {
+            "type": "string",
+            "defaultValue": "Scanner-TM-FileStorageSecurity"
+        },
+        "StorageStackResourceGroupName": {
+            "type": "string",
+            "defaultValue": "Storage-TM-FileStorageSecurity"
+        },
+        "BlobStorageAccountResourceID": {
+            "defaultValue": "/subscriptions/<subscriptionID>/resourceGroups/<resourceGroupName>/providers/Microsoft.Storage/storageAccounts/<storageAccountName>",
+            "type": "String",
+            "metadata": {
+                "description": "The resource ID of Storage Account to scan."
+            }
+        },
+        "BlobSystemTopicExist": {
+            "allowedValues": [
+                "Yes",
+                "No"
+            ],
+            "metadata": {
+                "description": "Select <B>Yes</B> if your Blob system topic is already created."
+            },
+            "defaultValue": "No",
+            "type": "String"
+        },
+        "BlobSystemTopicName": {
+            "defaultValue": "BlobEventTopic",
+            "type": "String",
+            "metadata": {
+                "description": "The existing blob system topic name or the name of blob system topic to be created."
+            }
+        },
+        "ScannerTemplate": {
+            "type": "string",
+            "defaultValue": "FSS-Scanner-Stack-Template.json"
+        },
+        "StorageTemplate": {
+            "type": "string",
+            "defaultValue": "FSS-Storage-Stack-Template.json"
+        },
+        "ScannerRoleAssignmentTemplate": {
+            "type": "string",
+            "defaultValue": "FSS-Scanner-Stack-Role-Assignment.json"
+        },
+        "ScannerPackage": {
+            "type": "String",
+            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-scanner.zip"
+        },
+        "BlobListenerPackage": {
+            "type": "String",
+            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-listener.zip"
+        },
+        "PostScanActionTagPackage": {
+            "type": "String",
+            "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com/latest/functions/azure-action-tag.zip"
+        }
     },
     "variables": {
-
+        "subscriptionID": "[subscription().subscriptionId]",
+        "location": "[deployment().location]"
     },
     "resources": [
+        {
+            "type": "Microsoft.Resources/resourceGroups",
+            "apiVersion": "2018-05-01",
+            "location": "[variables('location')]",
+            "name": "[parameters('ScannerStackResourceGroupName')]"
+        },
+        {
+            "type": "Microsoft.Resources/resourceGroups",
+            "apiVersion": "2018-05-01",
+            "location": "[variables('location')]",
+            "name": "[parameters('StorageStackResourceGroupName')]"
+        },
+        {
+            "apiVersion": "2019-05-01",
+            "name": "scannerStack",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/resourceGroups', parameters('ScannerStackResourceGroupName'))]"
+            ],
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[parameters('ScannerStackResourceGroupName')]",
+            "subscriptionId": "[variables('subscriptionID')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "relativePath": "[parameters('ScannerTemplate')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "ScannerPackage": {
+                        "value": "[parameters('ScannerPackage')]"
+                    }
+                }
+            }
+        },
+        {
+            "apiVersion": "2019-05-01",
+            "name": "storageStack",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/resourceGroups', parameters('StorageStackResourceGroupName'))]"
+            ],
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[parameters('StorageStackResourceGroupName')]",
+            "subscriptionId": "[variables('subscriptionID')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "relativePath": "[parameters('StorageTemplate')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "BlobStorageAccountResourceID": {
+                        "value": "[parameters('BlobStorageAccountResourceID')]"
+                    },
+                    "ScannerIdentityPrincipalID": {
+                        "value": "[reference('scannerStack').outputs.ScannerIdentityPrincipalID.value]"
+                    },
+                    "ScannerQueueNamespace": {
+                        "value": "[reference('scannerStack').outputs.ScannerQueueNamespace.value]"
+                    },
+                    "BlobListenerPackage": {
+                        "value": "[parameters('BlobListenerPackage')]"
+                    },
+                    "PostScanActionTagPackage": {
+                        "value": "[parameters('PostScanActionTagPackage')]"
+                    },
+                    "BlobSystemTopicExist": {
+                        "value": "[parameters('BlobSystemTopicExist')]"
+                    },
+                    "BlobSystemTopicName": {
+                        "value": "[parameters('BlobSystemTopicName')]"
+                    }
 
-    ],
-    "outputs": {
-
-    }
+                }
+            }
+        },
+        {
+            "apiVersion": "2019-05-01",
+            "name": "scannerStackRoleAssignment",
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[parameters('ScannerStackResourceGroupName')]",
+            "subscriptionId": "[variables('subscriptionID')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "relativePath": "[parameters('ScannerRoleAssignmentTemplate')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "storageStacks": {
+                        "value": [ "[reference('storageStack').outputs.StorageStackResourceGroupID.value]" ]
+                    },
+                    "scannerQueueNamespace": {
+                        "value": "[reference('scannerStack').outputs.ScannerQueueNamespace.value]"
+                    }
+                }
+            }
+        }
+    ]
 }

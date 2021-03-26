@@ -88,9 +88,11 @@
         "scanResultTopicSubscriptionName": "scan-result",
         "scanResultSASKeyName": "RootManageSharedAccessKey",
         "scanResultAuthRuleResourceID": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', variables('scanResultTopicNamespaceName'), variables('scanResultSASKeyName'))]",
-        "blobWriterRoleName": "[guid(variables('blobResourceGroupName'), string(variables('blobWriterActions')))]",
+        "blobWriterRoleName": "[guid(variables('storageStackUID'), string(variables('blobWriterActions')))]",
         "blobWriterActions": [
+            "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/read",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/write",
+            "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write"
         ]
     },
@@ -167,6 +169,9 @@
                             "apiVersion": "2018-09-01-preview",
                             "name": "[guid(resourceGroup().id, 'BlobWriterRoleAssignment')]",
                             "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('blobAccountName'))]",
+                            "dependsOn": [
+                                "[variables('blobWriterRoleName')]"
+                            ],
                             "properties": {
                                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('blobWriterRoleName'))]",
                                 "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actionTagIdentityName'))).principalId]",
@@ -462,10 +467,6 @@
                         {
                             "name": "WEBSITE_RUN_FROM_PACKAGE",
                             "value": "[parameters('PostScanActionTagPackage')]"
-                        },
-                        {
-                            "name": "BLOB_ACCOUNT_URL",
-                            "value": "[reference(parameters('BlobStorageAccountResourceID'), variables('blobStorageAccountAPIVersion')).primaryEndpoints.blob]"
                         },
                         {
                             "name": "BUS_TOPIC_CONNECTION_STR",

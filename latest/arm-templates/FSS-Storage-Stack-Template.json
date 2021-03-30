@@ -92,7 +92,14 @@
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/write",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write"
-        ]
+        ],
+        "blobSystemTopicSubscriptionName": "[concat(variables('blobListenerAppName'), '-trigger')]",
+        "scriptForDeletingStorageResourceGroup":  "[concat('az group delete --name ', resourceGroup().name, ' --no-wait -y')]",
+        "scriptForDeletingBlobDelegatorRoleAssignment": "[concat('az role assignment delete --ids ', concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', variables('blobAccountName'),'/providers/Microsoft.Authorization/roleAssignments/', guid(resourceGroup().id, 'StorageBlobDelegatorRoleAssignment')))]",
+        "scriptForDeletingBlobDataReaderRoleAssignment": "[concat('az role assignment delete --ids ', concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', variables('blobAccountName'),'/providers/Microsoft.Authorization/roleAssignments/', guid(resourceGroup().id, 'StorageBlobDataReaderRoleAssignment')))]",
+        "scriptForDeletingBlobWriterRoleAssignment": "[concat('az role assignment delete --ids ', concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', variables('blobAccountName'),'/providers/Microsoft.Authorization/roleAssignments/', guid(resourceGroup().id, 'BlobWriterRoleAssignment')))]",
+        "scriptForDeletingBlobWriterRole": "[concat('az role definition delete --name ', concat('BlobWriterForPostScanAction-', variables('blobWriterRoleName')))]",
+        "scriptForDeletingBlobEventSubscriptions": "[concat('az resource delete --ids ', concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.EventGrid/systemTopics/', parameters('BlobSystemTopicName'), '/eventSubscriptions/', variables('blobSystemTopicSubscriptionName')))]"
     },
     "resources": [
         {
@@ -527,7 +534,7 @@
                         {
                             "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
                             "apiVersion": "2020-04-01-preview",
-                            "name": "[concat(parameters('BlobSystemTopicName'), '/', variables('blobListenerAppName'), '-trigger')]",
+                            "name": "[concat(parameters('BlobSystemTopicName'), '/', variables('blobSystemTopicSubscriptionName'))]",
                             "dependsOn": [
                                 "[parameters('BlobSystemTopicName')]"
                             ],
@@ -562,6 +569,17 @@
         "StorageStackResourceGroupID": {
             "type": "string",
             "value": "[resourceGroup().id]"
+        },
+        "ScriptForDeletingStorageStack": {
+            "type": "string",
+            "value": "[
+                concat(variables('scriptForDeletingStorageResourceGroup'),' && ',
+                concat(variables('scriptForDeletingBlobDelegatorRoleAssignment'), ' && '),
+                concat(variables('scriptForDeletingBlobWriterRoleAssignment'), ' && '),
+                concat(variables('scriptForDeletingBlobDataReaderRoleAssignment'), ' && '),
+                concat(variables('scriptForDeletingBlobWriterRole'), ' && '),
+                variables('scriptForDeletingBlobEventSubscriptions'))
+            ]"
         }
     }
 }

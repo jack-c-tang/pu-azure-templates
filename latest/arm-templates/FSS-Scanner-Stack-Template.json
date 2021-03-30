@@ -22,10 +22,7 @@
         "location": "[resourceGroup().location]",
         "scannerApplicationInsightsName": "[concat('tmai0', toLower(variables('scannerStackUID')))]",
         "scannerApplicationInsightsID": "[guid(concat('tmai0', toLower(variables('scannerStackUID'))))]",
-        "downloadPatternsRoleName": "[guid(resourceGroup().id, 'downloadPatternsRole')]",
-        "downloadPatternsRoleAssignmentName": "[guid(resourceGroup().id, 'downloadPatternsRoleAssignment')]",
-        "fssShareName": "fss",
-        "fssShareResourceName": "[concat(variables('scannerStorageAccountName'), '/default/', variables('fssShareName'))]",
+        "scannerPatternPath": "data/patterns",
         "scannerIdentityName": "scannerIdentity",
         "scannerQueueNamespaceName": "[concat('tmsbq0', toLower(variables('scannerStackUID')))]",
         "scannerQueueName": "scanner_queue",
@@ -102,86 +99,29 @@
             "kind": "Storage"
         },
         {
-            "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
-            "apiVersion": "2019-06-01",
-            "name": "[variables('fssShareResourceName')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName'))]"
-            ]
-        },
-        {
-            "type": "Microsoft.Authorization/roleDefinitions",
-            "apiVersion": "2018-07-01",
-            "name": "[variables('downloadPatternsRoleName')]",
-            "properties": {
-                "roleName": "[variables('downloadPatternsRoleName')]",
-                "description": "role for downloadPatterns deployment script",
-                "type": "customRole",
-                "isCustom": true,
-                "permissions": [
-                    {
-                        "actions": [
-                            // least privilege for executing deployment scripts
-                            "Microsoft.Storage/storageAccounts/*",
-                            "Microsoft.ContainerInstance/containerGroups/*",
-                            "Microsoft.Resources/deployments/*",
-                            "Microsoft.Resources/deploymentScripts/*",
-                            // other required permissions for downloadPatterns
-                            "Microsoft.Web/sites/*"
-                        ],
-                        "dataActions": [
-                            "Microsoft.Storage/storageAccounts/fileServices/fileshares/files/*"
-                        ]
-                    }
-                ],
-                "assignableScopes": [
-                    "[resourceGroup().Id]"
-                ]
-            }
-        },
-        {
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "apiVersion": "2018-11-30",
-            "name": "downloadPatternsIdentity",
-            "location": "[variables('location')]"
-        },
-        {
-            "type": "Microsoft.Authorization/roleAssignments",
-            "apiVersion": "2018-09-01-preview",
-            "name": "[variables('downloadPatternsRoleAssignmentName')]",
-            "properties": {
-                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('downloadPatternsRoleName'))]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'downloadPatternsIdentity')).principalId]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Authorization/roleDefinitions', variables('downloadPatternsRoleName'))]"
-            ]
-        },
-        {
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "downloadPatterns",
             "location": "[resourceGroup().location]",
             "kind": "AzureCLI",
-            "identity": {
-                "type": "userAssigned",
-                "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', 'downloadPatternsIdentity')]": {}
-                }
-            },
             "dependsOn": [
-                "[variables('downloadPatternsRoleAssignmentName')]",
-                "[variables('scannerFunctionAppName')]",
-                "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('scannerStorageAccountName'), 'default', variables('fssShareName'))]"
+                "[variables('scannerFunctionAppName')]"
             ],
             "properties": {
-                "forceUpdateTag": "20200129", // use a fixed value to execute only once
+                "forceUpdateTag": "20210330", // use a fixed value to execute only once
                 "azCliVersion": "2.3.1",
+                "storageAccountSettings": {
+                    "storageAccountName": "[variables('scannerStorageAccountName')]",
+                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName')), '2019-06-01').keys[0].value]"
+                },
                 "environmentVariables": [
                     {
                         "name": "AZURE_STORAGE_ACCOUNT",
                         "value": "[variables('scannerStorageAccountName')]"
+                    },
+                    {
+                        "name": "AZURE_STORAGE_KEY",
+                        "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('scannerStorageAccountName')), '2019-06-01').keys[0].value]"
                     },
                     {
                         "name": "RESOURCE_GROUP_NAME",
@@ -192,34 +132,21 @@
                         "value": "[variables('scannerFunctionAppName')]"
                     },
                     {
-                        "name": "FSS_SHARE_NAME",
-                        "value": "[variables('fssShareName')]"
+                        "name": "PATTERN_PATH",
+                        "value": "[variables('scannerPatternPath')]"
                     }
                 ],
                 // Azure portal deployment cannot parse json files contain multi-line string
                 // "scriptContent": "
                 //     set -x
-                //     export AZURE_STORAGE_KEY=$(az storage account keys list -g $RESOURCE_GROUP_NAME -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv)
-                //     az storage directory create --share-name $FSS_SHARE_NAME --name patterns
+                //     az storage directory create --share-name $FUNCTION_APP_NAME --name PATTERN_PATH
                 //     wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip
                 //     unzip pattern.zip
-                //     az storage file upload-batch --destination $FSS_SHARE_NAME/patterns --source ./patterns
-                //
-                //     shareList=$(az webapp config storage-account list --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME)
-                //     echo $shareList
-                //     [[ $shareList == *\\\"fss-share-pattern\\\"* ]] || az webapp config storage-account add \\
-                //         --resource-group $RESOURCE_GROUP_NAME \\
-                //         --name $FUNCTION_APP_NAME \\
-                //         --custom-id fss-share-pattern \\
-                //         --storage-type AzureFiles \\
-                //         --share-name $FSS_SHARE_NAME \\
-                //         --mount-path /fss \\
-                //         --account-name $AZURE_STORAGE_ACCOUNT \\
-                //         --access-key $AZURE_STORAGE_KEY
+                //     az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns
                 // ",
-                "scriptContent": "set -x \n export AZURE_STORAGE_KEY=$(az storage account keys list -g $RESOURCE_GROUP_NAME -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv) \n az storage directory create --share-name $FSS_SHARE_NAME --name patterns \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FSS_SHARE_NAME/patterns --source ./patterns \n shareList=$(az webapp config storage-account list --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME) \n echo $shareList \n [[ $shareList == *\\\"fss-share-pattern\\\"* ]] || az webapp config storage-account add --resource-group $RESOURCE_GROUP_NAME --name $FUNCTION_APP_NAME --custom-id fss-share-pattern --storage-type AzureFiles --share-name $FSS_SHARE_NAME --mount-path /fss --account-name $AZURE_STORAGE_ACCOUNT --access-key $AZURE_STORAGE_KEY",
+                "scriptContent": "set -x \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns",
                 "arguments": "",
-                "timeout": "PT1H",
+                "timeout": "PT10M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             }
@@ -316,8 +243,8 @@
                             "value": "/home/site/wwwroot:/home/site/wwwroot/lib"
                         },
                         {
-                            "name": "FSS_SHARE_PATH",
-                            "value": "[concat('/', variables('fssShareName'))]"
+                            "name": "PATTERN_PATH",
+                            "value": "[concat('/home', variables('scannerPatternPath'))]"
                         },
                         {
                             "name": "LICENSE",
@@ -358,10 +285,6 @@
         "ScannerIdentityPrincipalID": {
             "type": "string",
             "value": "[reference(variables('scannerIdentityName')).principalId]"
-        },
-        "ScriptForDeletingScannerStack": {
-            "type": "string",
-            "value": "[concat('az group delete --name ', resourceGroup().name, ' --no-wait -y')]"
         }
     }
 }

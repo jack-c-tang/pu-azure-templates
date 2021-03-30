@@ -244,7 +244,7 @@
                         },
                         {
                             "name": "PATTERN_PATH",
-                            "value": "[concat('/home', variables('scannerPatternPath'))]"
+                            "value": "[concat('/home/', variables('scannerPatternPath'))]"
                         },
                         {
                             "name": "LICENSE",

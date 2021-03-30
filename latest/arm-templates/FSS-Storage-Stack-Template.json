@@ -572,14 +572,7 @@
         },
         "ScriptForDeletingStorageStack": {
             "type": "string",
-            "value": "[
-                concat(variables('scriptForDeletingStorageResourceGroup'),' && ',
-                concat(variables('scriptForDeletingBlobDelegatorRoleAssignment'), ' && '),
-                concat(variables('scriptForDeletingBlobWriterRoleAssignment'), ' && '),
-                concat(variables('scriptForDeletingBlobDataReaderRoleAssignment'), ' && '),
-                concat(variables('scriptForDeletingBlobWriterRole'), ' && '),
-                variables('scriptForDeletingBlobEventSubscriptions'))
-            ]"
+            "value": "[concat(variables('scriptForDeletingStorageResourceGroup'),' && ', concat(variables('scriptForDeletingBlobDelegatorRoleAssignment'), ' && '), concat(variables('scriptForDeletingBlobWriterRoleAssignment'), ' && '), concat(variables('scriptForDeletingBlobDataReaderRoleAssignment'), ' && '), concat(variables('scriptForDeletingBlobWriterRole'), ' && '), variables('scriptForDeletingBlobEventSubscriptions'))]"
         }
     }
 }

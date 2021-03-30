@@ -156,10 +156,7 @@
     "outputs": {
         "ScriptForDeletingStorageStack": {
             "type": "string",
-            "value": "[
-                concat(concat(reference('storageStack').outputs.ScriptForDeletingStorageStack.value, ' && '),
-                reference('scannerStackRoleAssignment').outputs.ScriptForDeletingScannerStackRoleAssignments.value[0])
-            ]"
+            "value": "[concat(concat(reference('storageStack').outputs.ScriptForDeletingStorageStack.value, ' && '), reference('scannerStackRoleAssignment').outputs.ScriptForDeletingScannerStackRoleAssignments.value[0])]"
         },
         "ScriptForDeletingScannerStack": {
             "type": "string",

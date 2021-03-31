@@ -152,5 +152,15 @@
                 }
             }
         }
-    ]
+    ],
+    "outputs": {
+        "ScriptForDeletingScannerStack": {
+            "type": "string",
+            "value": "[reference('scannerStack').outputs.ScriptForDeletingScannerStack.value]"
+        },
+        "ScriptForDeletingStorageStack": {
+            "type": "string",
+            "value": "[concat( reference('scannerStackRoleAssignment').outputs.ScriptForDeletingScannerStackRoleAssignments.value[0], ' && ', reference('storageStack').outputs.ScriptForDeletingStorageStack.value)]"
+        }
+    }
 }

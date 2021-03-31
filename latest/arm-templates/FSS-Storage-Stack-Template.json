@@ -92,7 +92,19 @@
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/write",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write"
-        ]
+        ],
+        "blobSystemTopicSubscriptionName": "[concat(variables('blobListenerAppName'), '-trigger')]",
+        "storageBlobDelegatorRoleAssignmentUID": "[guid(resourceGroup().id, 'StorageBlobDelegatorRoleAssignment')]",
+        "storageBlobDataReaderRoleAssignmentUID": "[guid(resourceGroup().id, 'StorageBlobDataReaderRoleAssignment')]",
+        "blobWriterRoleAssignmentUID": "[guid(resourceGroup().id, 'BlobWriterRoleAssignment')]",
+        "blobWriterRoleDefinitionName":"[concat('BlobWriterForPostScanAction-', variables('blobWriterRoleName'))]",
+        "blobSystemTopicSubscriptionID" : "[concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.EventGrid/systemTopics/', parameters('BlobSystemTopicName'), '/eventSubscriptions/', variables('blobSystemTopicSubscriptionName'))]",
+        "scriptForDeletingStorageResourceGroup":  "[format('az group delete --name {0} --no-wait -y', resourceGroup().name)]",
+        "scriptForDeletingBlobDelegatorRoleAssignment": "[format('az role assignment delete --ids {0}/providers/Microsoft.Authorization/roleAssignments/{1}', parameters('BlobStorageAccountResourceID'), variables('storageBlobDelegatorRoleAssignmentUID'))]",
+        "scriptForDeletingBlobDataReaderRoleAssignment": "[format('az role assignment delete --ids {0}/providers/Microsoft.Authorization/roleAssignments/{1}', parameters('BlobStorageAccountResourceID'), variables('storageBlobDataReaderRoleAssignmentUID'))]",
+        "scriptForDeletingBlobWriterRoleAssignment": "[format('az role assignment delete --ids {0}/providers/Microsoft.Authorization/roleAssignments/{1}', parameters('BlobStorageAccountResourceID'), variables('blobWriterRoleAssignmentUID'))]",
+        "scriptForDeletingBlobWriterRole": "[format('az role definition delete --name {0}', variables('blobWriterRoleDefinitionName'))]",
+        "scriptForDeletingBlobEventSubscriptions": "[format('az resource delete --ids {0}', variables('blobSystemTopicSubscriptionID'))]"
     },
     "resources": [
         {
@@ -126,7 +138,7 @@
                             "apiVersion": "2018-07-01",
                             "name": "[variables('blobWriterRoleName')]",
                             "properties": {
-                                "roleName": "[concat('BlobWriterForPostScanAction-', variables('blobWriterRoleName'))]",
+                                "roleName": "[variables('blobWriterRoleDefinitionName')]",
                                 "description": "The Role has Blob Writer permission",
                                 "type": "customRole",
                                 "isCustom": true,
@@ -143,7 +155,7 @@
                         {
                             "type": "Microsoft.Authorization/roleAssignments",
                             "apiVersion": "2018-09-01-preview",
-                            "name": "[guid(resourceGroup().id, 'StorageBlobDelegatorRoleAssignment')]",
+                            "name": "[variables('storageBlobDelegatorRoleAssignmentUID')]",
                             "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('blobAccountName'))]",
                             "properties": {
                                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDelegatorRoleID'))]",
@@ -154,7 +166,7 @@
                         {
                             "type": "Microsoft.Authorization/roleAssignments",
                             "apiVersion": "2018-09-01-preview",
-                            "name": "[guid(resourceGroup().id, 'StorageBlobDataReaderRoleAssignment')]",
+                            "name": "[variables('storageBlobDataReaderRoleAssignmentUID')]",
                             "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('blobAccountName'))]",
                             "properties": {
                                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataReaderRoleID'))]",
@@ -165,7 +177,7 @@
                         {
                             "type": "Microsoft.Authorization/roleAssignments",
                             "apiVersion": "2018-09-01-preview",
-                            "name": "[guid(resourceGroup().id, 'BlobWriterRoleAssignment')]",
+                            "name": "[variables('blobWriterRoleAssignmentUID')]",
                             "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('blobAccountName'))]",
                             "dependsOn": [
                                 "[variables('blobWriterRoleName')]"
@@ -527,7 +539,7 @@
                         {
                             "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
                             "apiVersion": "2020-04-01-preview",
-                            "name": "[concat(parameters('BlobSystemTopicName'), '/', variables('blobListenerAppName'), '-trigger')]",
+                            "name": "[concat(parameters('BlobSystemTopicName'), '/', variables('blobSystemTopicSubscriptionName'))]",
                             "dependsOn": [
                                 "[parameters('BlobSystemTopicName')]"
                             ],
@@ -562,6 +574,10 @@
         "StorageStackResourceGroupID": {
             "type": "string",
             "value": "[resourceGroup().id]"
+        },
+        "ScriptForDeletingStorageStack": {
+            "type": "string",
+            "value": "[concat(variables('scriptForDeletingStorageResourceGroup'),' && ', variables('scriptForDeletingBlobDelegatorRoleAssignment'), ' && ', variables('scriptForDeletingBlobWriterRoleAssignment'), ' && ', variables('scriptForDeletingBlobDataReaderRoleAssignment'), ' && ', variables('scriptForDeletingBlobWriterRole'), ' && ', variables('scriptForDeletingBlobEventSubscriptions'))]"
         }
     }
 }

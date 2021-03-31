@@ -22,7 +22,8 @@
         "location": "[resourceGroup().location]",
         "scannerApplicationInsightsName": "[concat('tmai0', toLower(variables('scannerStackUID')))]",
         "scannerApplicationInsightsID": "[guid(concat('tmai0', toLower(variables('scannerStackUID'))))]",
-        "scannerPatternPath": "data/patterns",
+        "scannerPatternRootFolder": "data",
+        "scannerPatternPath": "[concat(variables('scannerPatternRootFolder'), '/patterns')]",
         "scannerIdentityName": "scannerIdentity",
         "scannerQueueNamespaceName": "[concat('tmsbq0', toLower(variables('scannerStackUID')))]",
         "scannerQueueName": "scanner_queue",
@@ -108,7 +109,7 @@
                 "[variables('scannerFunctionAppName')]"
             ],
             "properties": {
-                "forceUpdateTag": "20210330", // use a fixed value to execute only once
+                "forceUpdateTag": "20210331", // use a fixed value to execute only once
                 "azCliVersion": "2.3.1",
                 "storageAccountSettings": {
                     "storageAccountName": "[variables('scannerStorageAccountName')]",
@@ -132,6 +133,10 @@
                         "value": "[variables('scannerFunctionAppName')]"
                     },
                     {
+                        "name": "PATTERN_ROOT_FOLDER",
+                        "value": "[variables('scannerPatternRootFolder')]"
+                    },
+                    {
                         "name": "PATTERN_PATH",
                         "value": "[variables('scannerPatternPath')]"
                     }
@@ -139,15 +144,17 @@
                 // Azure portal deployment cannot parse json files contain multi-line string
                 // "scriptContent": "
                 //     set -x
-                //     az storage directory create --share-name $FUNCTION_APP_NAME --name PATTERN_PATH
+                //     az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_ROOT_FOLDER
+                //     az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH
                 //     wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip
                 //     unzip pattern.zip
                 //     az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns
                 // ",
-                "scriptContent": "set -x \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns",
+                "scriptContent": "set -x \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_ROOT_FOLDER \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns",
                 "arguments": "",
                 "timeout": "PT10M",
-                "cleanupPreference": "OnSuccess",
+                "cleanupPreference": "OnExpiration",
+                // "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             }
         },
@@ -285,6 +292,10 @@
         "ScannerIdentityPrincipalID": {
             "type": "string",
             "value": "[reference(variables('scannerIdentityName')).principalId]"
+        },
+        "ScriptForDeletingScannerStack": {
+            "type": "string",
+            "value": "[concat('az group delete --name ', resourceGroup().name, ' --no-wait -y')]"
         }
     }
 }

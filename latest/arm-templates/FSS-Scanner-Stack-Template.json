@@ -2,6 +2,9 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "FileStorageSecurityServicePrincipalID": {
+            "type": "string"
+        },
         "StackPackageLocation": {
             "type": "string",
             "defaultValue": "https://file-storage-security-preview.s3.amazonaws.com"
@@ -153,8 +156,7 @@
                 "scriptContent": "set -x \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_ROOT_FOLDER \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns",
                 "arguments": "",
                 "timeout": "PT10M",
-                "cleanupPreference": "OnExpiration",
-                // "cleanupPreference": "OnSuccess",
+                "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             }
         },

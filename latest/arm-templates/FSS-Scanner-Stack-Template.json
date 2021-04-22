@@ -1,9 +1,14 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "FileStorageSecurityServicePrincipalID": {
-            "type": "string"
+            "type": "string",
+            "metadata": {
+                "description": "The ID of the Service Principal created for Trend Micro's App Registration."
+            },
+            "minLength": 36,
+            "maxLength": 36
         },
         "StackPackageLocation": {
             "type": "string",
@@ -18,23 +23,25 @@
         "functionPackageLinkPrefix": "[concat(parameters('Version'), '/functions')]",
         "scannerFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-scanner.zip')]",
 
-        "scannerStackUID": "[uniqueString(resourceGroup().id)]",
-        "scannerFunctionAppName": "[concat('tmsf0', variables('scannerStackUID'))]",
-        "scannerServerFarmName": "[concat('tmssf0', variables('scannerStackUID'))]",
-        "scannerStorageAccountName": "[concat('tmsa0', toLower(variables('scannerStackUID')))]",
+        "stackUID": "[uniqueString(resourceGroup().id)]",
+        "scannerFunctionAppName": "[concat('tmsf0', variables('stackUID'))]",
+        "scannerServerFarmName": "[concat('tmssf0', variables('stackUID'))]",
+        "scannerStorageAccountName": "[concat('tmsa0', toLower(variables('stackUID')))]",
         "location": "[resourceGroup().location]",
-        "scannerApplicationInsightsName": "[concat('tmai0', toLower(variables('scannerStackUID')))]",
-        "scannerApplicationInsightsID": "[guid(concat('tmai0', toLower(variables('scannerStackUID'))))]",
+        "scannerApplicationInsightsName": "[concat('tmai0', toLower(variables('stackUID')))]",
+        "scannerApplicationInsightsID": "[guid(concat('tmai0', toLower(variables('stackUID'))))]",
         "scannerPatternRootFolder": "data",
         "scannerPatternPath": "[concat(variables('scannerPatternRootFolder'), '/patterns')]",
         "scannerIdentityName": "scannerIdentity",
-        "scannerQueueNamespaceName": "[concat('tmsbq0', toLower(variables('scannerStackUID')))]",
+        "scannerQueueNamespaceName": "[concat('tmsbq0', toLower(variables('stackUID')))]",
         "scannerQueueName": "scanner_queue",
         "scannerBusQueueName": "[concat(variables('scannerQueueNamespaceName'), '/', variables('scannerQueueName'))]",
         "scannerQueueSASKeyName": "RootManageSharedAccessKey",
         "scannerQueueAuthRuleResourceId": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', variables('scannerQueueNamespaceName'), variables('scannerQueueSASKeyName'))]",
         "scannerQueueAPIVersion": "2017-04-01",
-        "scannerLicense": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ3d3cudHJlbmRtaWNyby5jb20iLCJleHAiOjE2Mjc3NzYwMDAsIm5iZiI6MTYxNjQ5NTMzNywiaWF0IjoxNjE2NDk1MzM3LCJzdWIiOiJhenVyZS1zY2FubmVyLXBvYyIsImNsb3VkT25lIjp7ImFjY291bnQiOiIxMjM0NTY3ODkwMTIifX0.U3N6cGhk4KLqZEs_54xdc9usMATYy-NkSoM7QLcBNLHoDjKGONs5yTkV5kHxRB8P49YzICPLRCihNGqoluQOichNyHKlRcs-NKzd4DY5whdU-O3HNZuxpjJFOs7aSCkSD89mUXCJD1q5cpU7khNE_GGzNzs5e1sv1r42RPZm57R60uvpu0xUSt8pzAOCRTxp5F4jPlT8zAMdkc04_wqSo4UO80r9fYZBveKReFn-ZP9c0xqerE9aZ5Z37AMF1uEjAFrP7zm9pGjmhvi3c87Mp11gwLmvJWL_5taW8yEVd1B9M57dfciXmQRUNHL4oj9lp0ZMCBtQ4H5J2ofrD3rvGIFHU915YKCOM-PEd0z4S16dw32rqkFEfHQT76oNl7pzG3QseNsCCJlJkcxBcp44lGEUd5fLLOwthAzbMVdUKOPx9Hyft5vooG9QNsadgraMkrtsnIylkw_lIf9clXY5VdCH6e7F2vYWHwlGU9-zxSONEWzKUsMjTzPi5NPh-PANencynasBA6cr8hO6I6nO8jobSbua_th5By9P7iQP0dG8aJTdAq28qSu2El7yR8AIlBDmjMhMGsiAuJWGco5Ia_0LyBLMARhHbAGyU2Gfuwg9hL4GbqN5Mw6fnsV9i2FN1GlQyikVmqwcwmBjZXphgx8vwwMZDUlFjEu9wUhTzpA"
+        "scannerLicense": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ3d3cudHJlbmRtaWNyby5jb20iLCJleHAiOjE2Mjc3NzYwMDAsIm5iZiI6MTYxNjQ5NTMzNywiaWF0IjoxNjE2NDk1MzM3LCJzdWIiOiJhenVyZS1zY2FubmVyLXBvYyIsImNsb3VkT25lIjp7ImFjY291bnQiOiIxMjM0NTY3ODkwMTIifX0.U3N6cGhk4KLqZEs_54xdc9usMATYy-NkSoM7QLcBNLHoDjKGONs5yTkV5kHxRB8P49YzICPLRCihNGqoluQOichNyHKlRcs-NKzd4DY5whdU-O3HNZuxpjJFOs7aSCkSD89mUXCJD1q5cpU7khNE_GGzNzs5e1sv1r42RPZm57R60uvpu0xUSt8pzAOCRTxp5F4jPlT8zAMdkc04_wqSo4UO80r9fYZBveKReFn-ZP9c0xqerE9aZ5Z37AMF1uEjAFrP7zm9pGjmhvi3c87Mp11gwLmvJWL_5taW8yEVd1B9M57dfciXmQRUNHL4oj9lp0ZMCBtQ4H5J2ofrD3rvGIFHU915YKCOM-PEd0z4S16dw32rqkFEfHQT76oNl7pzG3QseNsCCJlJkcxBcp44lGEUd5fLLOwthAzbMVdUKOPx9Hyft5vooG9QNsadgraMkrtsnIylkw_lIf9clXY5VdCH6e7F2vYWHwlGU9-zxSONEWzKUsMjTzPi5NPh-PANencynasBA6cr8hO6I6nO8jobSbua_th5By9P7iQP0dG8aJTdAq28qSu2El7yR8AIlBDmjMhMGsiAuJWGco5Ia_0LyBLMARhHbAGyU2Gfuwg9hL4GbqN5Mw6fnsV9i2FN1GlQyikVmqwcwmBjZXphgx8vwwMZDUlFjEu9wUhTzpA",
+        "managementRoleName": "[guid(variables('stackUID'), 'ManagementRole')]",
+        "managementRoleAssignmentUID": "[guid(variables('stackUID'), 'ManagementRoleAssignment', parameters('FileStorageSecurityServicePrincipalID'))]"
     },
     "resources": [
         {
@@ -69,10 +76,9 @@
                         "maxSizeInMegabytes": 1024,
                         "requiresDuplicateDetection": false,
                         "requiresSession": false,
-                        "defaultMessageTimeToLive": "P14D",
+                        "defaultMessageTimeToLive": "PT1H",
                         "deadLetteringOnMessageExpiration": false,
                         "enableBatchedOperations": true,
-                        "duplicateDetectionHistoryTimeWindow": "PT10M",
                         "maxDeliveryCount": 2,
                         "status": "Active",
                         "enablePartitioning": false,
@@ -284,9 +290,84 @@
                 "httpsOnly": false,
                 "redundancyMode": "None"
             }
+        },
+        {
+            "type": "Microsoft.Authorization/roleDefinitions",
+            "apiVersion": "2018-07-01",
+            "name": "[variables('managementRoleName')]",
+            "properties": {
+                "roleName": "[concat('FSSManagementRole-', variables('managementRoleName'))]",
+                "description": "FSS management role",
+                "type": "customRole",
+                "isCustom": true,
+                "permissions": [
+                    {
+                        "actions": [
+                            "Microsoft.Resources/subscriptions/resourceGroups/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/deployments/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/deployments/operations/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/deployments/operationstatuses/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/resources/read",
+
+                            "Microsoft.Web/sites/Read",
+                            "Microsoft.Web/sites/config/Read",
+                            "Microsoft.Web/sites/config/Write",
+                            "Microsoft.Web/sites/functions/read",
+                            "Microsoft.Web/sites/functions/write",
+                            "Microsoft.Web/sites/host/sync/action",
+                            "Microsoft.Web/sites/host/listsyncstatus/action",
+                            "Microsoft.Web/sites/metrics/read",
+                            "Microsoft.Web/sites/restart/Action",
+                            "Microsoft.Web/sites/syncfunctiontriggers/action",
+                            "Microsoft.Web/sites/usages/read",
+
+                            "Microsoft.Authorization/roleDefinitions/read",
+                            "Microsoft.Authorization/roleAssignments/read",
+                            "Microsoft.Authorization/roleAssignments/write",
+                            "Microsoft.Authorization/roleAssignments/delete",
+
+                            "Microsoft.Resources/deployments/read",
+                            "Microsoft.Resources/deployments/whatIf/action",
+                            "Microsoft.Resources/deployments/exportTemplate/action",
+                            "Microsoft.Resources/deployments/operations/read",
+                            "Microsoft.Resources/deployments/operationstatuses/read",
+
+                            "Microsoft.Resources/deploymentScripts/read",
+                            "Microsoft.Resources/deploymentScripts/logs/read",
+
+                            "Microsoft.Storage/storageAccounts/read",
+
+                            "Microsoft.Insights/Components/Read",
+                            "Microsoft.Insights/Components/Query/Read",
+                            "Microsoft.Insights/Logs/Read",
+
+                            "Microsoft.ServiceBus/namespaces/read",
+                            "Microsoft.ServiceBus/namespaces/queues/read"
+                        ]
+                    }
+                ],
+                "assignableScopes": [
+                    "[resourceGroup().id]"
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2018-09-01-preview",
+            "name": "[variables('managementRoleAssignmentUID')]",
+            "dependsOn": ["[variables('managementRoleName')]"],
+            "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('managementRoleName'))]",
+                "principalId": "[parameters('FileStorageSecurityServicePrincipalID')]",
+                "principalType": "ServicePrincipal"
+            }
         }
     ],
     "outputs": {
+        "ScannerStackResourceGroupID": {
+            "type": "string",
+            "value": "[resourceGroup().id]"
+        },
         "ScannerQueueNamespace": {
             "type": "string",
             "value": "[variables('scannerQueueNamespaceName')]"

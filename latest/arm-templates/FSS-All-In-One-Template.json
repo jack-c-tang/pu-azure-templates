@@ -1,7 +1,15 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/subscriptionDeploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "FileStorageSecurityServicePrincipalID": {
+            "type": "string",
+            "metadata": {
+                "description": "The ID of the Service Principal created for Trend Micro's App Registration."
+            },
+            "defaultValue": "fss-service-principal-id",
+            "maxLength": 36
+        },
         "ScannerStackResourceGroupName": {
             "type": "string",
             "defaultValue": "Scanner-TM-FileStorageSecurity",
@@ -15,7 +23,6 @@
             "maxLength": 90
         },
         "BlobStorageAccountResourceID": {
-            "defaultValue": "/subscriptions/<subscriptionID>/resourceGroups/<resourceGroupName>/providers/Microsoft.Storage/storageAccounts/<storageAccountName>",
             "type": "String",
             "metadata": {
                 "description": "The resource ID of Storage Account to scan."
@@ -46,14 +53,19 @@
         "Version": {
             "type": "string",
             "defaultValue": "latest"
+        },
+        "SAS": {
+            "type": "secureString",
+            "defaultValue": ""
         }
     },
     "variables": {
         "location": "[deployment().location]",
         "templateLinkPrefix": "[concat(parameters('Version'), '/arm-templates')]",
-        "scannerStackTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Scanner-Stack-Template.json')]",
-        "storageStackTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Storage-Stack-Template.json')]",
-        "scannerRoleAssignmentTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Scanner-Stack-Role-Assignment.json')]"
+        "unifiedSAS": "[if(empty(parameters('SAS')), '', if(startsWith(parameters('SAS'), '?'), parameters('SAS'), concat('?', parameters('SAS'))))]",
+        "scannerStackTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Scanner-Stack-Template.json', variables('unifiedSAS'))]",
+        "storageStackTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Storage-Stack-Template.json', variables('unifiedSAS'))]",
+        "scannerRoleAssignmentTemplateLink": "[concat(parameters('StackPackageLocation'), '/', variables('templateLinkPrefix'), '/FSS-Scanner-Stack-Role-Assignment.json', variables('unifiedSAS'))]"
     },
     "resources": [
         {
@@ -83,11 +95,17 @@
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
+                    "FileStorageSecurityServicePrincipalID": {
+                        "value": "[parameters('FileStorageSecurityServicePrincipalID')]"
+                    },
                     "StackPackageLocation": {
                         "value": "[parameters('StackPackageLocation')]"
                     },
                     "Version": {
                         "value": "[parameters('Version')]"
+                    },
+                    "SAS": {
+                        "value": "[parameters('SAS')]"
                     }
                 }
             }
@@ -107,6 +125,9 @@
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
+                    "FileStorageSecurityServicePrincipalID": {
+                        "value": "[parameters('FileStorageSecurityServicePrincipalID')]"
+                    },
                     "BlobStorageAccountResourceID": {
                         "value": "[parameters('BlobStorageAccountResourceID')]"
                     },
@@ -127,6 +148,9 @@
                     },
                     "Version": {
                         "value": "[parameters('Version')]"
+                    },
+                    "SAS": {
+                        "value": "[parameters('SAS')]"
                     }
                 }
             }
@@ -154,6 +178,18 @@
         }
     ],
     "outputs": {
+        "TenantID": {
+            "type": "string",
+            "value": "[subscription().tenantId]"
+        },
+        "ScannerStackResourceGroupID": {
+            "type": "string",
+            "value": "[reference('scannerStack').outputs.ScannerStackResourceGroupID.value]"
+        },
+        "StorageStackResourceGroupID": {
+            "type": "string",
+            "value": "[reference('storageStack').outputs.StorageStackResourceGroupID.value]"
+        },
         "ScriptForDeletingScannerStack": {
             "type": "string",
             "value": "[reference('scannerStack').outputs.ScriptForDeletingScannerStack.value]"

@@ -7,7 +7,7 @@
             "metadata": {
                 "description": "The ID of the Service Principal created for Trend Micro's App Registration."
             },
-            "minLength": 36,
+            "defaultValue": "fss-service-principal-id",
             "maxLength": 36
         },
         "StackPackageLocation": {
@@ -17,11 +17,16 @@
         "Version": {
             "type": "string",
             "defaultValue": "latest"
+        },
+        "SAS": {
+            "type": "secureString",
+            "defaultValue": ""
         }
     },
     "variables": {
         "functionPackageLinkPrefix": "[concat(parameters('Version'), '/functions')]",
-        "scannerFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-scanner.zip')]",
+        "unifiedSAS": "[if(empty(parameters('SAS')), '', if(startsWith(parameters('SAS'), '?'), parameters('SAS'), concat('?', parameters('SAS'))))]",
+        "scannerFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-scanner.zip', variables('unifiedSAS'))]",
 
         "stackUID": "[uniqueString(resourceGroup().id)]",
         "scannerFunctionAppName": "[concat('tmsf0', variables('stackUID'))]",
@@ -118,7 +123,7 @@
                 "[variables('scannerFunctionAppName')]"
             ],
             "properties": {
-                "forceUpdateTag": "20210331", // use a fixed value to execute only once
+                "forceUpdateTag": "20210331",
                 "azCliVersion": "2.3.1",
                 "storageAccountSettings": {
                     "storageAccountName": "[variables('scannerStorageAccountName')]",
@@ -150,15 +155,6 @@
                         "value": "[variables('scannerPatternPath')]"
                     }
                 ],
-                // Azure portal deployment cannot parse json files contain multi-line string
-                // "scriptContent": "
-                //     set -x
-                //     az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_ROOT_FOLDER
-                //     az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH
-                //     wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip
-                //     unzip pattern.zip
-                //     az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns
-                // ",
                 "scriptContent": "set -x \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_ROOT_FOLDER \n az storage directory create --share-name $FUNCTION_APP_NAME --name $PATTERN_PATH \n wget https://file-storage-security.s3.amazonaws.com/latest/patterns/pattern-icrc-269.zip -O pattern.zip \n unzip pattern.zip \n az storage file upload-batch --destination $FUNCTION_APP_NAME/$PATTERN_PATH --source ./patterns",
                 "arguments": "",
                 "timeout": "PT10M",
@@ -310,6 +306,7 @@
                             "Microsoft.Resources/subscriptions/resourcegroups/resources/read",
 
                             "Microsoft.Web/sites/Read",
+                            "Microsoft.Web/sites/config/list/action",
                             "Microsoft.Web/sites/config/Read",
                             "Microsoft.Web/sites/config/Write",
                             "Microsoft.Web/sites/functions/read",
@@ -364,6 +361,10 @@
         }
     ],
     "outputs": {
+        "TenantID": {
+            "type": "string",
+            "value": "[subscription().tenantId]"
+        },
         "ScannerStackResourceGroupID": {
             "type": "string",
             "value": "[resourceGroup().id]"

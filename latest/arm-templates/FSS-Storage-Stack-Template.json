@@ -1,17 +1,23 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "FileStorageSecurityServicePrincipalID": {
+            "type": "string",
+            "metadata": {
+                "description": "The ID of the Service Principal created for Trend Micro's App Registration."
+            },
+            "defaultValue": "fss-service-principal-id",
+            "maxLength": 36
+        },
         "BlobStorageAccountResourceID": {
             "type": "String",
-            "defaultValue": "/subscriptions/<subscriptionID>/resourceGroups/<resourceGroupName>/providers/Microsoft.Storage/storageAccounts/<storageAccountName>",
             "metadata": {
                 "description": "The resource ID of Storage Account to scan."
             }
         },
         "ScannerIdentityPrincipalID": {
             "type": "String",
-            "defaultValue": "<principal_guid>",
             "metadata": {
                 "description": "The principal ID of Scanner identity."
             }
@@ -47,30 +53,34 @@
         "Version": {
             "type": "string",
             "defaultValue": "latest"
+        },
+        "SAS": {
+            "type": "secureString",
+            "defaultValue": ""
         }
     },
     "variables": {
         "functionPackageLinkPrefix": "[concat(parameters('Version'), '/functions')]",
-        "blobListenerFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-listener.zip')]",
-        "actionTagFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-action-tag.zip')]",
+        "unifiedSAS": "[if(empty(parameters('SAS')), '', if(startsWith(parameters('SAS'), '?'), parameters('SAS'), concat('?', parameters('SAS'))))]",
+        "blobListenerFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-listener.zip', variables('unifiedSAS'))]",
+        "actionTagFunctionPackageLink": "[concat(parameters('StackPackageLocation'), '/', variables('functionPackageLinkPrefix'), '/azure-action-tag.zip', variables('unifiedSAS'))]",
 
-        "storageStackUID": "[uniqueString(resourceGroup().id)]",
+        "stackUID": "[uniqueString(resourceGroup().id)]",
         "blobStorageAccountResourceIdSplits": "[split(parameters('BlobStorageAccountResourceID'), '/')]",
         "blobSubscriptionID": "[variables('blobStorageAccountResourceIdSplits')[2]]",
         "blobResourceGroupName": "[variables('blobStorageAccountResourceIdSplits')[4]]",
         "blobAccountName": "[variables('blobStorageAccountResourceIdSplits')[8]]",
-        "blobListenerAppName": "[concat('tmbl0', variables('storageStackUID'))]",
-        "blobListenerApplicationInsightsName": "[concat('tmblai0', variables('storageStackUID'))]",
+        "blobListenerAppName": "[concat('tmbl0', variables('stackUID'))]",
+        "blobListenerApplicationInsightsName": "[concat('tmblai0', variables('stackUID'))]",
         "blobListenerApplicationInsightsID": "[guid(variables('blobListenerApplicationInsightsName'))]",
-        "blobListenerServerFarmName": "[concat('tmblsf0', variables('storageStackUID'))]",
-        "blobListenerStorageAccountName": "[concat('tmblsa0', variables('storageStackUID'))]",
-        "actionTagAppName": "[concat('tmat0', variables('storageStackUID'))]",
-        "actionTagApplicationInsightsName": "[concat('tmatai0', variables('storageStackUID'))]",
+        "blobListenerServerFarmName": "[concat('tmblsf0', variables('stackUID'))]",
+        "blobListenerStorageAccountName": "[concat('tmblsa0', variables('stackUID'))]",
+        "actionTagAppName": "[concat('tmat0', variables('stackUID'))]",
+        "actionTagApplicationInsightsName": "[concat('tmatai0', variables('stackUID'))]",
         "actionTagApplicationInsightsID": "[guid(variables('actionTagApplicationInsightsName'))]",
-        "actionTagServerFarmName": "[concat('tmatsf0', variables('storageStackUID'))]",
-        "actionTagStorageAccountName": "[concat('tmatsa0', variables('storageStackUID'))]",
+        "actionTagServerFarmName": "[concat('tmatsf0', variables('stackUID'))]",
+        "actionTagStorageAccountName": "[concat('tmatsa0', variables('stackUID'))]",
         "location": "[resourceGroup().location]",
-        "resourceGroupName": "[resourceGroup().name]",
         "storageBlobDelegatorRoleID": "db58b8e5-c6ad-4a2a-8342-4190687cbf4a",
         "storageBlobDataReaderRoleID": "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1",
         "serviceBusDataSenderRoleID": "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39",
@@ -80,13 +90,13 @@
         "blobStorageAccountAPIVersion": "2019-06-01",
         "managedIdentityAPIVersion": "2018-11-30",
         "scanResultTopicAPIVersion": "2017-04-01",
-        "scanResultTopicNamespaceName": "[concat('tmsrt0', variables('storageStackUID'))]",
+        "scanResultTopicNamespaceName": "[concat('tmsrt0', variables('stackUID'))]",
         "scanResultTopicNamespace": "[concat(variables('scanResultTopicNamespaceName'), '.servicebus.windows.net')]",
         "scanResultTopicName": "scan-result-topic",
         "scanResultTopicSubscriptionName": "scan-result",
         "scanResultSASKeyName": "RootManageSharedAccessKey",
         "scanResultAuthRuleResourceID": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', variables('scanResultTopicNamespaceName'), variables('scanResultSASKeyName'))]",
-        "blobWriterRoleName": "[guid(variables('storageStackUID'), string(variables('blobWriterActions')))]",
+        "blobWriterRoleName": "[guid(variables('stackUID'), string(variables('blobWriterActions')))]",
         "blobWriterActions": [
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/read",
             "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/write",
@@ -97,14 +107,16 @@
         "storageBlobDelegatorRoleAssignmentUID": "[guid(resourceGroup().id, 'StorageBlobDelegatorRoleAssignment')]",
         "storageBlobDataReaderRoleAssignmentUID": "[guid(resourceGroup().id, 'StorageBlobDataReaderRoleAssignment')]",
         "blobWriterRoleAssignmentUID": "[guid(resourceGroup().id, 'BlobWriterRoleAssignment')]",
-        "blobWriterRoleDefinitionName":"[concat('BlobWriterForPostScanAction-', variables('blobWriterRoleName'))]",
-        "blobSystemTopicSubscriptionID" : "[concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.EventGrid/systemTopics/', parameters('BlobSystemTopicName'), '/eventSubscriptions/', variables('blobSystemTopicSubscriptionName'))]",
-        "scriptForDeletingStorageResourceGroup":  "[format('az group delete --name {0} --no-wait -y', resourceGroup().name)]",
+        "blobWriterRoleDefinitionName": "[concat('BlobWriterForPostScanAction-', variables('blobWriterRoleName'))]",
+        "blobSystemTopicSubscriptionID": "[concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'), '/providers/Microsoft.EventGrid/systemTopics/', parameters('BlobSystemTopicName'), '/eventSubscriptions/', variables('blobSystemTopicSubscriptionName'))]",
+        "scriptForDeletingStorageResourceGroup": "[format('az group delete --name {0} --no-wait -y', resourceGroup().name)]",
         "scriptForDeletingBlobDelegatorRoleAssignment": "[format('az role assignment delete --ids {0}/providers/Microsoft.Authorization/roleAssignments/{1}', parameters('BlobStorageAccountResourceID'), variables('storageBlobDelegatorRoleAssignmentUID'))]",
         "scriptForDeletingBlobDataReaderRoleAssignment": "[format('az role assignment delete --ids {0}/providers/Microsoft.Authorization/roleAssignments/{1}', parameters('BlobStorageAccountResourceID'), variables('storageBlobDataReaderRoleAssignmentUID'))]",
         "scriptForDeletingBlobWriterRoleAssignment": "[format('az role assignment delete --ids {0}/providers/Microsoft.Authorization/roleAssignments/{1}', parameters('BlobStorageAccountResourceID'), variables('blobWriterRoleAssignmentUID'))]",
         "scriptForDeletingBlobWriterRole": "[format('az role definition delete --name {0}', variables('blobWriterRoleDefinitionName'))]",
-        "scriptForDeletingBlobEventSubscriptions": "[format('az resource delete --ids {0}', variables('blobSystemTopicSubscriptionID'))]"
+        "scriptForDeletingBlobEventSubscriptions": "[format('az resource delete --ids {0}', variables('blobSystemTopicSubscriptionID'))]",
+        "managementRoleName": "[guid(variables('stackUID'), 'ManagementRole')]",
+        "managementRoleAssignmentUID": "[guid(variables('stackUID'), 'ManagementRoleAssignment', parameters('FileStorageSecurityServicePrincipalID'))]"
     },
     "resources": [
         {
@@ -148,7 +160,7 @@
                                     }
                                 ],
                                 "assignableScopes": [
-                                    "[concat('/subscriptions/', variables('blobSubscriptionID'), '/resourcegroups/', variables('blobResourceGroupName'))]"
+                                    "[parameters('BlobStorageAccountResourceID')]"
                                 ]
                             }
                         },
@@ -568,9 +580,79 @@
                 },
                 "parameters": {}
             }
+        },
+        {
+            "type": "Microsoft.Authorization/roleDefinitions",
+            "apiVersion": "2018-07-01",
+            "name": "[variables('managementRoleName')]",
+            "properties": {
+                "roleName": "[concat('FSSManagementRole-', variables('managementRoleName'))]",
+                "description": "FSS management role",
+                "type": "customRole",
+                "isCustom": true,
+                "permissions": [
+                    {
+                        "actions": [
+                            "Microsoft.Resources/subscriptions/resourceGroups/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/deployments/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/deployments/operations/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/deployments/operationstatuses/read",
+                            "Microsoft.Resources/subscriptions/resourcegroups/resources/read",
+
+                            "Microsoft.Web/sites/Read",
+                            "Microsoft.Web/sites/config/list/action",
+                            "Microsoft.Web/sites/config/Read",
+                            "Microsoft.Web/sites/config/Write",
+                            "Microsoft.Web/sites/functions/read",
+                            "Microsoft.Web/sites/functions/write",
+                            "Microsoft.Web/sites/host/sync/action",
+                            "Microsoft.Web/sites/host/listsyncstatus/action",
+                            "Microsoft.Web/sites/metrics/read",
+                            "Microsoft.Web/sites/restart/Action",
+                            "Microsoft.Web/sites/syncfunctiontriggers/action",
+                            "Microsoft.Web/sites/usages/read",
+
+                            "Microsoft.Authorization/roleDefinitions/read",
+                            "Microsoft.Authorization/roleAssignments/read",
+                            "Microsoft.Authorization/roleAssignments/write",
+                            "Microsoft.Authorization/roleAssignments/delete",
+
+                            "Microsoft.Resources/deployments/read",
+                            "Microsoft.Resources/deployments/whatIf/action",
+                            "Microsoft.Resources/deployments/exportTemplate/action",
+                            "Microsoft.Resources/deployments/operations/read",
+                            "Microsoft.Resources/deployments/operationstatuses/read",
+
+                            "Microsoft.Storage/storageAccounts/read",
+
+                            "Microsoft.Insights/Components/Read",
+                            "Microsoft.Insights/Components/Query/Read",
+                            "Microsoft.Insights/Logs/Read"
+                        ]
+                    }
+                ],
+                "assignableScopes": [
+                    "[resourceGroup().id]"
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2018-09-01-preview",
+            "name": "[variables('managementRoleAssignmentUID')]",
+            "dependsOn": [ "[variables('managementRoleName')]" ],
+            "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('managementRoleName'))]",
+                "principalId": "[parameters('FileStorageSecurityServicePrincipalID')]",
+                "principalType": "ServicePrincipal"
+            }
         }
     ],
     "outputs": {
+        "TenantID": {
+            "type": "string",
+            "value": "[subscription().tenantId]"
+        },
         "StorageStackResourceGroupID": {
             "type": "string",
             "value": "[resourceGroup().id]"

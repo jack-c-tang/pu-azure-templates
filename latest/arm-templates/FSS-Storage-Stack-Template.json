@@ -7,7 +7,7 @@
             "metadata": {
                 "description": "The ID of the Service Principal created for Trend Micro's App Registration."
             },
-            "defaultValue": "fss-service-principal-id",
+            "defaultValue": "",
             "maxLength": 36
         },
         "BlobStorageAccountResourceID": {
@@ -640,6 +640,7 @@
             "type": "Microsoft.Authorization/roleAssignments",
             "apiVersion": "2018-09-01-preview",
             "name": "[variables('managementRoleAssignmentUID')]",
+            "condition": "[not(empty(parameters('FileStorageSecurityServicePrincipalID')))]",
             "dependsOn": [ "[variables('managementRoleName')]" ],
             "properties": {
                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('managementRoleName'))]",
